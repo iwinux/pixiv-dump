@@ -9,6 +9,7 @@ export async function scrapeAllIndividualArticles() {
   // Find articles that need individual scraping:
   // 1. Articles never scraped individually (lastScrapedArticle IS NULL) - prioritized first
   // 2. Articles updated since last individual scrape (lastScraped > lastScrapedArticle)
+  // We need to use queryRaw because these fields are saved as strings of numbers.
   const articles = await prisma.$queryRaw<Array<{ tag_name: string }>>`
     SELECT tag_name 
     FROM PixivArticle 
