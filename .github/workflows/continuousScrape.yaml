@@ -41,15 +41,16 @@ jobs:
             sleep 60
           done
 
-      - name: Download Artifacts from Last Workflow
-        uses: actions/download-artifact@v4
-        with:
-          name: db
-          path: db
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          # Previous run ID
-          run-id: ${{ steps.get_run_id.outputs.run_id }}
+      - name: Download pixiv.db from latest release
+        run: |
+          LATEST_RELEASE_URL=$(curl --silent --show-error -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.assets[] | select(.name == "pixiv.db") | .browser_download_url')
+          if [ -n "$LATEST_RELEASE_URL" ]; then
+            echo "Downloading pixiv.db from $LATEST_RELEASE_URL"
+            curl --silent --show-error -L "$LATEST_RELEASE_URL" -o db/pixiv.db
+          else
+            echo "pixiv.db not found in the latest release or no releases found."
+          fi
         continue-on-error: true
 
       - name: Install Dependencies
