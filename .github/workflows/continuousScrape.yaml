@@ -12,6 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: Get time of 5.9 hours from now
         id: get_time_details
         run: |
@@ -55,19 +60,16 @@ jobs:
         continue-on-error: true
 
       - name: Install Dependencies
-        run: npm ci
+        run: bun install
 
       - name: Create db/pixiv.db if it doesn't exist
         run: |
           if [ ! -f db/pixiv.db ]; then
-            npx prisma migrate dev
+            bunx prisma migrate dev
           fi
 
       - name: Set up DB
-        run: npm run migrate
-
-      - name: Build
-        run: npm run build
+        run: bun run migrate
 
       - name: Get seconds until next run
         id: get_seconds_until_nextrun
@@ -80,7 +82,7 @@ jobs:
         run: echo "::set-output name=ms::$((${{ steps.get_seconds_until_nextrun.outputs.seconds }} * 1000))"
 
       - name: Scrape
-        run: node . --timeout=${{ steps.get_ms_until_nextrun.outputs.ms }}
+        run: bun src/index.ts --timeout=${{ steps.get_ms_until_nextrun.outputs.ms }}
 
       - name: Upload DB
         uses: actions/upload-artifact@v4

@@ -1,14 +1,13 @@
-import test from 'ava';
+import { test, expect } from 'bun:test';
 import { scrapeSingleArticleInfo } from '../scrape/scrapeSingleArticleInfo';
 
-test('scrapeSingleArticleInfo should not return null values for フリーレン', async (t) => {
+test('scrapeSingleArticleInfo should not return null values for フリーレン', async () => {
   const frierenTag = 'フリーレン';
   const { reading, header, mainText } =
     await scrapeSingleArticleInfo(frierenTag);
 
-  t.truthy(reading, 'Reading should not be null or empty');
-  t.truthy(mainText, 'MainText should not be null or empty');
-
-  t.true(Array.isArray(header), 'Header should be a valid JSON array');
-  t.true(header.length > 0, 'Header array should have length greater than 0');
+  expect(reading).toBeTruthy();
+  expect(mainText).toBeTruthy();
+  expect(Array.isArray(header)).toBe(true);
+  expect(header.length).toBeGreaterThan(0);
 });
