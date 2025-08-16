@@ -11,7 +11,7 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
   const dom = new JSDOM(response.data);
   const document = dom.window.document;
   const reading = getReading(document);
-  const header = getHeaders(document);
+  const header = getHeaders(document, tag_name);
   const mainText = getMainText(document);
 
   return {
@@ -21,52 +21,45 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
   };
 }
 
-function getHeaders(document: Document) {
-  const breadcrumbs = document.getElementById('breadcrumbs');
-  const header = breadcrumbs
-    ? [...breadcrumbs.children].map((child) => child.textContent)
-    : [];
-  return header;
+function getHeaders(document: Document, tag_name: string): string[] {
+  const headers = [
+    ...document.querySelectorAll('a[gtm-class=article-breadcrumbs_link]'),
+  ].map((a) => a.textContent ?? '');
+  if (!headers.length) {
+    throw new Error(`No headers found for tag: ${tag_name}`);
+  }
+  headers.push(tag_name);
+  return headers;
 }
 
 function getReading(document: Document) {
-  return document.querySelector('p.subscript')?.textContent || '';
+  return (
+    document
+      .getElementById('article-content-header')
+      ?.querySelector('.my-4.text-text3.typography-12')?.textContent || ''
+  );
 }
 
-function getMainText(document: Document) {
-  const articleBody = document.getElementById('article-body');
-  if (!articleBody) {
+function getMainText(document: Document): string {
+  const articleAbstractText = [
+    ...(document.getElementById('article-abstract')?.querySelectorAll('p') ??
+      []),
+  ]
+    .map((p) => p.textContent ?? '')
+    .filter((text) => text !== '')
+    .join('\n');
+
+  const firstSection = document.querySelector(
+    'div[data-header-id=h2_0]',
+  ) as HTMLDivElement;
+  const firstSectionText = [...(firstSection?.querySelectorAll('p') ?? [])]
+    .map((p) => p.textContent ?? '')
+    .filter((text) => text !== '')
+    .join('\n');
+
+  if (!articleAbstractText && !firstSectionText) {
     return '';
   }
 
-  // Clean out article index/misc
-  articleBody.querySelector('.article-index')?.remove();
-
-  const gaiyou = [...articleBody.querySelectorAll('h2')].find((h2) => {
-    return h2.textContent?.includes('概要');
-  });
-  let mainText = '';
-  if (gaiyou) {
-    mainText = getTextUntilH2(gaiyou.nextElementSibling);
-  } else {
-    // No gaiyou, just get the first paragraph
-    mainText = getTextUntilH2(articleBody.firstElementChild);
-  }
-  return mainText.trim();
-}
-
-function getTextUntilH2(start: Element | null) {
-  if (!start) {
-    return '';
-  }
-  let text = '';
-  let next: Element | null = start;
-  while (next && next.tagName !== 'H2') {
-    const cleanText = next.textContent?.trim();
-    if (cleanText && next.tagName === 'P') {
-      text += cleanText + '\n';
-    }
-    next = next.nextElementSibling;
-  }
-  return text;
+  return articleAbstractText + '\n\n' + firstSectionText;
 }
