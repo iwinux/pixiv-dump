@@ -3,7 +3,7 @@ import { prisma } from '..';
 import { scrapeSingleArticleInfo } from './scrapeSingleArticleInfo';
 
 /**
- * Scrape all readings for articles that have not been scraped yet
+ * Scrape all readings for articles that have not been scraped yet or have been updated since the last scrape.
  */
 export async function scrapeAllIndividualArticles() {
   // Find articles that need individual scraping:
@@ -14,7 +14,11 @@ export async function scrapeAllIndividualArticles() {
     SELECT tag_name 
     FROM PixivArticle 
     WHERE lastScrapedArticle IS NULL 
-      OR CAST(lastScraped AS BIGINT) > CAST(lastScrapedArticle AS BIGINT)
+      OR (
+        lastScraped IS NOT NULL AND lastScrapedArticle IS NOT NULL AND
+        lastScraped ~ '^\d+$' AND lastScrapedArticle ~ '^\d+$' AND
+        CAST(lastScraped AS BIGINT) > CAST(lastScrapedArticle AS BIGINT)
+      )
     ORDER BY lastScrapedArticle IS NULL DESC, tag_name
   `;
 
