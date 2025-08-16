@@ -6,12 +6,17 @@ import { scrapeSingleArticleInfo } from './scrapeSingleArticleInfo';
  * Scrape all readings for articles that have not been scraped yet
  */
 export async function scrapeAllIndividualArticles() {
-  const articles = await prisma.pixivArticle.findMany({
-    where: { lastScrapedArticle: null },
-    select: {
-      tag_name: true,
-    },
-  });
+  // Find articles that need individual scraping:
+  // 1. Articles never scraped individually (lastScrapedArticle IS NULL) - prioritized first
+  // 2. Articles updated since last individual scrape (lastScraped > lastScrapedArticle)
+  const articles = await prisma.$queryRaw<Array<{ tag_name: string }>>`
+    SELECT tag_name 
+    FROM PixivArticle 
+    WHERE lastScrapedArticle IS NULL 
+      OR CAST(lastScraped AS BIGINT) > CAST(lastScrapedArticle AS BIGINT)
+    ORDER BY lastScrapedArticle IS NULL DESC, tag_name
+  `;
+
   console.log(`Scraping ${articles.length} individual articles`);
 
   const progressBar = new cliProgress.SingleBar(
@@ -29,7 +34,8 @@ export async function scrapeAllIndividualArticles() {
   let i = 0;
   for (const { tag_name } of articles) {
     try {
-      const { reading, header, mainText } = await scrapeSingleArticleInfo(tag_name);
+      const { reading, header, mainText } =
+        await scrapeSingleArticleInfo(tag_name);
       await prisma.pixivArticle.update({
         where: { tag_name },
         data: {
