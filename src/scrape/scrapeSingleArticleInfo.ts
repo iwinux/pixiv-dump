@@ -24,7 +24,7 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
 function getHeaders(document: Document, tag_name: string): string[] {
   const headers = [
     ...document.querySelectorAll('a[gtm-class=article-breadcrumbs_link]'),
-  ].map((a) => a.textContent);
+  ].map((a) => a.textContent ?? '');
   if (!headers.length) {
     throw new Error(`No headers found for tag: ${tag_name}`);
   }
@@ -45,14 +45,16 @@ function getMainText(document: Document): string {
     ...(document.getElementById('article-abstract')?.querySelectorAll('p') ??
       []),
   ]
-    .map((p) => p.textContent)
+    .map((p) => p.textContent ?? '')
+    .filter((text) => text !== '')
     .join('\n');
 
   const firstSection = document.querySelector(
     'div[data-header-id=h2_0]',
   ) as HTMLDivElement;
   const firstSectionText = [...(firstSection?.querySelectorAll('p') ?? [])]
-    .map((p) => p.textContent)
+    .map((p) => p.textContent ?? '')
+    .filter((text) => text !== '')
     .join('\n');
 
   if (!articleAbstractText && !firstSectionText) {

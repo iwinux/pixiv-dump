@@ -6,8 +6,6 @@ test('scrapeSingleArticleInfo should not return null values for フリーレン'
   const { reading, header, mainText } =
     await scrapeSingleArticleInfo(frierenTag);
 
-  console.log({ reading, header, mainText });
-
   expect(reading).toBeTruthy();
   expect(mainText).toBeTruthy();
   expect(Array.isArray(header)).toBe(true);
