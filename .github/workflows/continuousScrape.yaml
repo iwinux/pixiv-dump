@@ -43,6 +43,7 @@ jobs:
 
       - name: Download pixiv.db from latest release
         run: |
+          mkdir -p db
           LATEST_RELEASE_URL=$(curl --silent --show-error -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.assets[] | select(.name == "pixiv.db") | .browser_download_url')
           if [ -n "$LATEST_RELEASE_URL" ]; then
