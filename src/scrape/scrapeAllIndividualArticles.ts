@@ -11,13 +11,15 @@ export async function scrapeAllIndividualArticles() {
   // 2. Articles updated since last individual scrape (lastScraped > lastScrapedArticle)
   // We need to use queryRaw because these fields are saved as strings of numbers.
   const articles = await prisma.$queryRaw<Array<{ tag_name: string }>>`
-    SELECT tag_name 
-    FROM PixivArticle 
-    WHERE lastScrapedArticle IS NULL 
+    SELECT tag_name
+    FROM PixivArticle
+    WHERE lastScrapedArticle IS NULL
       OR (
-        lastScraped IS NOT NULL AND lastScrapedArticle IS NOT NULL AND
-        lastScraped ~ '^\d+$' AND lastScrapedArticle ~ '^\d+$' AND
-        CAST(lastScraped AS BIGINT) > CAST(lastScrapedArticle AS BIGINT)
+        lastScraped IS NOT NULL
+        AND lastScrapedArticle IS NOT NULL
+        AND lastScraped GLOB '[0-9]*'
+        AND lastScrapedArticle GLOB '[0-9]*'
+        AND CAST(lastScraped AS INTEGER) > CAST(lastScrapedArticle AS INTEGER)
       )
     ORDER BY lastScrapedArticle IS NULL DESC, tag_name
   `;
