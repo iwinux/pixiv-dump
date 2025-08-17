@@ -8,7 +8,10 @@
     "migrate": "bunx prisma migrate deploy",
     "prepare": "bunx prisma generate",
     "start": "bun src/index.ts",
-    "format": "bunx prettier --write ."
+    "format": "bunx prettier --write .",
+    "format:check": "bunx prettier --check .",
+    "lint": "bunx eslint . --ext .ts,.js",
+    "lint:fix": "bunx eslint . --ext .ts,.js --fix"
   },
   "author": "marvnc",
   "license": "MIT",
