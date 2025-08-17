@@ -1,13 +1,34 @@
 import { JSDOM } from 'jsdom';
 import { fetchURL } from '../fetch/fetchURL';
 import { PIXIV_BASE_URL } from '../constants';
+import { AxiosError, isAxiosError } from 'axios';
+
 const pixivArticleURL = (tag_name: string) =>
   `${PIXIV_BASE_URL}a/${encodeURIComponent(tag_name)}`;
+
+export class ArticleNotFoundError extends Error {
+  constructor(tag_name: string) {
+    super(`Article not found: ${tag_name}`);
+    this.name = 'ArticleNotFoundError';
+  }
+}
+
+async function fetchArticlePage(url: string, tag_name: string) {
+  try {
+    const response = await fetchURL(url);
+    return response;
+  } catch (error) {
+    if (isAxiosError(error) && (error as AxiosError).response?.status === 404) {
+      throw new ArticleNotFoundError(tag_name);
+    }
+    throw error;
+  }
+}
 
 export async function scrapeSingleArticleInfo(tag_name: string) {
   // Fetch the page
   const url = pixivArticleURL(tag_name);
-  const response = await fetchURL(url);
+  const response = await fetchArticlePage(url, tag_name);
   const dom = new JSDOM(response.data);
   const document = dom.window.document;
   const reading = getReading(document);

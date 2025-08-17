@@ -1,6 +1,9 @@
 import cliProgress from 'cli-progress';
 import { prisma } from '..';
-import { scrapeSingleArticleInfo } from './scrapeSingleArticleInfo';
+import {
+  scrapeSingleArticleInfo,
+  ArticleNotFoundError,
+} from './scrapeSingleArticleInfo';
 
 /**
  * Scrape all readings for articles that have not been scraped yet or have been updated since the last scrape.
@@ -38,7 +41,7 @@ export async function scrapeAllIndividualArticles() {
   );
   progressBar.start(articles.length, 0);
 
-  let i = 0;
+  let progressBarIndex = 0;
   for (const { tag_name } of articles) {
     try {
       const { reading, header, mainText } =
@@ -53,10 +56,17 @@ export async function scrapeAllIndividualArticles() {
         },
       });
     } catch (error) {
-      console.error(`Error scraping article ${tag_name}: ${error}`);
+      if (error instanceof ArticleNotFoundError) {
+        console.log(`Article not found, removing from database: ${tag_name}`);
+        await prisma.pixivArticle.delete({
+          where: { tag_name },
+        });
+      } else {
+        console.error(`Error scraping article ${tag_name}: ${error}`);
+      }
     }
-    i++;
-    progressBar.update(i);
+    progressBarIndex++;
+    progressBar.update(progressBarIndex);
   }
   progressBar.stop();
 }
