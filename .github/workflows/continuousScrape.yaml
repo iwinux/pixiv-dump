@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p db
           LATEST_RELEASE_URL=$(curl --silent --show-error -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.assets[] | select(.name == "pixiv.db") | .browser_download_url')
+            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=1" | jq -r '.[0].assets[] | select(.name == "pixiv.db") | .browser_download_url')
           if [ -n "$LATEST_RELEASE_URL" ]; then
             echo "Downloading pixiv.db from $LATEST_RELEASE_URL"
             curl --silent --show-error -L "$LATEST_RELEASE_URL" -o db/pixiv.db
@@ -82,7 +82,9 @@ jobs:
         run: echo "::set-output name=ms::$((${{ steps.get_seconds_until_nextrun.outputs.seconds }} * 1000))"
 
       - name: Scrape
-        run: bun src/index.ts --timeout=${{ steps.get_ms_until_nextrun.outputs.ms }}
+        run:
+          bun src/index.ts --timeout=${{ steps.get_ms_until_nextrun.outputs.ms
+          }}
 
       - name: Upload DB
         uses: actions/upload-artifact@v4
