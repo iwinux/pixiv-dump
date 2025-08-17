@@ -8,6 +8,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Check ESLint
+        run: bunx eslint . --ext .ts,.js
+
+      - name: Check Prettier formatting
+        run: bunx prettier --check .
+
   test:
     runs-on: ubuntu-latest
 
