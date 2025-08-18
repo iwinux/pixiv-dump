@@ -67,6 +67,9 @@ export async function scrapeAllIndividualArticles() {
     }
     progressBarIndex++;
     progressBar.update(progressBarIndex);
+    if (progressBarIndex % 1000 === 0) {
+      console.log(`Processed ${progressBarIndex} articles`);
+    }
   }
   progressBar.stop();
 }
