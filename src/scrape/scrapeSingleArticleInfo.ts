@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { fetchURL } from '../fetch/fetchURL';
 import { PIXIV_BASE_URL } from '../constants';
-import { AxiosError, isAxiosError } from 'axios';
+import { isAxiosError } from 'axios';
 
 const pixivArticleURL = (tag_name: string) =>
   `${PIXIV_BASE_URL}a/${encodeURIComponent(tag_name)}`;
@@ -18,7 +18,7 @@ async function fetchArticlePage(url: string, tag_name: string) {
     const response = await fetchURL(url);
     return response;
   } catch (error) {
-    if (isAxiosError(error) && (error as AxiosError).response?.status === 404) {
+    if (isAxiosError(error) && error.response?.status === 404) {
       throw new ArticleNotFoundError(tag_name);
     }
     throw error;
