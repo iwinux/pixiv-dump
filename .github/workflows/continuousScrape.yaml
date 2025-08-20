@@ -161,7 +161,7 @@ jobs:
           files: |
             db/pixiv.db
           tag_name: ${{ steps.date.outputs.date }}
-          prerelease: ${{ steps.read_total.outputs.total == '' }}
+          # prerelease: ${{ steps.read_total.outputs.total == '' }}
           body: ${{ steps.set_body.outputs.body }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
