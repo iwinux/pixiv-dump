@@ -13,21 +13,33 @@ export async function scrapeAllIndividualArticles() {
   // 1. Articles never scraped individually (lastScrapedArticle IS NULL) - prioritized first
   // 2. Articles updated since last individual scrape (lastScraped > lastScrapedArticle)
   // We need to use queryRaw because these fields are saved as strings of numbers.
-  const articles = await prisma.$queryRaw<Array<{ tag_name: string }>>`
+
+  // Newly never-scraped articles (lastScrapedArticle IS NULL)
+  const newlyNeverScraped = await prisma.$queryRaw<Array<{ tag_name: string }>>`
     SELECT tag_name
     FROM PixivArticle
     WHERE lastScrapedArticle IS NULL
-      OR (
-        lastScraped IS NOT NULL
-        AND lastScrapedArticle IS NOT NULL
-        AND lastScraped GLOB '[0-9]*'
-        AND lastScrapedArticle GLOB '[0-9]*'
-        AND CAST(lastScraped AS INTEGER) > CAST(lastScrapedArticle AS INTEGER)
-      )
-    ORDER BY lastScrapedArticle IS NULL DESC, tag_name
+    ORDER BY CAST(lastScraped as INTEGER) ASC
   `;
 
-  console.log(`Scraping ${articles.length} individual articles`);
+  // Updated articles (lastScrapedArticle IS NOT NULL and lastScraped > lastScrapedArticle)
+  const updatedArticles = await prisma.$queryRaw<Array<{ tag_name: string }>>`
+    SELECT tag_name
+    FROM PixivArticle
+    WHERE lastScrapedArticle IS NOT NULL
+      AND lastScraped IS NOT NULL
+      AND lastScraped GLOB '[0-9]*'
+      AND lastScrapedArticle GLOB '[0-9]*'
+      AND CAST(lastScraped AS INTEGER) > CAST(lastScrapedArticle AS INTEGER)
+    ORDER BY CAST(lastScraped AS INTEGER) ASC,
+             tag_name
+  `;
+
+  const articles = [...newlyNeverScraped, ...updatedArticles];
+
+  console.log(
+    `Scraping ${articles.length} individual articles (${newlyNeverScraped.length} newly added, ${updatedArticles.length} updated)`,
+  );
 
   const progressBar = new cliProgress.SingleBar(
     {
@@ -69,6 +81,9 @@ export async function scrapeAllIndividualArticles() {
     progressBar.update(progressBarIndex);
     if (progressBarIndex % 1000 === 0) {
       console.log(`Processed ${progressBarIndex} articles`);
+    }
+    if (progressBarIndex === newlyNeverScraped.length) {
+      console.log(`All newly added articles processed`);
     }
   }
   progressBar.stop();
