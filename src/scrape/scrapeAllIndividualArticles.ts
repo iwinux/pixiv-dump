@@ -19,7 +19,7 @@ export async function scrapeAllIndividualArticles() {
     SELECT tag_name
     FROM PixivArticle
     WHERE lastScrapedArticle IS NULL
-    ORDER BY CAST(lastScraped as INTEGER) ASC,
+    ORDER BY CAST(lastScraped as INTEGER) ASC
   `;
 
   // Updated articles (lastScrapedArticle IS NOT NULL and lastScraped > lastScrapedArticle)
