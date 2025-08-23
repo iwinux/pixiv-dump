@@ -18,7 +18,10 @@ async function fetchArticlePage(url: string, tag_name: string) {
     const response = await fetchURL(url);
     return response;
   } catch (error) {
-    if (isAxiosError(error) && error.response?.status === 404) {
+    if (
+      isAxiosError(error) &&
+      (error.response?.status === 404 || error.response?.status === 403)
+    ) {
       throw new ArticleNotFoundError(tag_name);
     }
     throw error;
