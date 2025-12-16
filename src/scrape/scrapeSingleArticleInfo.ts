@@ -13,6 +13,30 @@ export class ArticleNotFoundError extends Error {
   }
 }
 
+interface ArticleData {
+  yomigana?: string;
+  categories?: string[];
+  abstract?: string;
+  text?: string;
+}
+
+interface BreadcrumbItem {
+  tagName: string;
+  url: string;
+}
+
+interface NextDataPageProps {
+  swrFallback?: {
+    [key: string]: ArticleData | BreadcrumbItem[] | unknown;
+  };
+}
+
+interface NextData {
+  props?: {
+    pageProps?: NextDataPageProps;
+  };
+}
+
 async function fetchArticlePage(url: string, tag_name: string) {
   try {
     const response = await fetchURL(url);
@@ -25,15 +49,83 @@ async function fetchArticlePage(url: string, tag_name: string) {
   }
 }
 
+/**
+ * Extracts article data from the Next.js __NEXT_DATA__ JSON in the HTML
+ */
+function extractArticleDataFromHTML(
+  html: string,
+  tag_name: string,
+): {
+  articleData: ArticleData | null;
+  breadcrumbs: BreadcrumbItem[] | null;
+} {
+  // Parse HTML to find __NEXT_DATA__ script tag
+  const dom = new JSDOM(html);
+  const document = dom.window.document;
+
+  const nextDataScript = document.getElementById('__NEXT_DATA__');
+  if (!nextDataScript || !nextDataScript.textContent) {
+    throw new Error('Could not find __NEXT_DATA__ in page');
+  }
+
+  let nextData: NextData;
+  try {
+    nextData = JSON.parse(nextDataScript.textContent);
+  } catch (error) {
+    throw new Error(`Failed to parse __NEXT_DATA__: ${error}`);
+  }
+
+  const swrFallback = nextData.props?.pageProps?.swrFallback;
+  if (!swrFallback) {
+    throw new Error('Could not find swrFallback in __NEXT_DATA__');
+  }
+
+  // Find the article data key - it contains the literal string '{tagName}' as a placeholder
+  // in the API path, and also contains the actual tag name value
+  // Example key format: '@"openapi-","/get_article/{tagName}",#params:#query:#lang:"ja",,path:#tagName:"フリーレン",,,,'
+  const articleKey = Object.keys(swrFallback).find(
+    (key) => key.includes('/get_article/{tagName}') && key.includes(tag_name),
+  );
+
+  // Find the breadcrumbs key with the same pattern
+  const breadcrumbsKey = Object.keys(swrFallback).find(
+    (key) =>
+      key.includes('/get_breadcrumbs/{tagName}') && key.includes(tag_name),
+  );
+
+  const articleData = articleKey
+    ? (swrFallback[articleKey] as ArticleData)
+    : null;
+  const breadcrumbs = breadcrumbsKey
+    ? (swrFallback[breadcrumbsKey] as BreadcrumbItem[])
+    : null;
+
+  return { articleData, breadcrumbs };
+}
+
 export async function scrapeSingleArticleInfo(tag_name: string) {
   // Fetch the page
   const url = pixivArticleURL(tag_name);
   const response = await fetchArticlePage(url, tag_name);
-  const dom = new JSDOM(response.data);
-  const document = dom.window.document;
-  const reading = getReading(document);
-  const header = getHeaders(document, tag_name);
-  const mainText = getMainText(document);
+
+  // Extract data from Next.js JSON
+  const { articleData, breadcrumbs } = extractArticleDataFromHTML(
+    response.data,
+    tag_name,
+  );
+
+  if (!articleData) {
+    throw new Error(`Could not find article data for tag: ${tag_name}`);
+  }
+
+  // Extract reading (yomigana)
+  const reading = articleData.yomigana || '';
+
+  // Extract headers from breadcrumbs and categories
+  const header = getHeaders(breadcrumbs, articleData.categories, tag_name);
+
+  // Extract main text from abstract and text fields
+  const mainText = getMainText(articleData);
 
   return {
     reading,
@@ -42,45 +134,51 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
   };
 }
 
-function getHeaders(document: Document, tag_name: string): string[] {
-  const headers = [
-    ...document.querySelectorAll('a[gtm-class=article-breadcrumbs_link]'),
-  ].map((a) => a.textContent ?? '');
+/**
+ * Extracts headers from breadcrumbs and categories
+ * Falls back to categories if breadcrumbs are not available
+ */
+function getHeaders(
+  breadcrumbs: BreadcrumbItem[] | null,
+  categories: string[] | undefined,
+  tag_name: string,
+): string[] {
+  let headers: string[] = [];
+
+  // Try to use breadcrumbs first
+  if (breadcrumbs && breadcrumbs.length > 0) {
+    headers = breadcrumbs.map((bc) => bc.tagName);
+  }
+  // Fall back to categories if breadcrumbs are not available
+  else if (categories && categories.length > 0) {
+    headers = [...categories];
+  }
+
+  // Always add the tag name at the end
+  if (!headers.includes(tag_name)) {
+    headers.push(tag_name);
+  }
+
   if (!headers.length) {
     throw new Error(`No headers found for tag: ${tag_name}`);
   }
-  headers.push(tag_name);
+
   return headers;
 }
 
-function getReading(document: Document) {
-  return (
-    document
-      .getElementById('article-content-header')
-      ?.querySelector('.my-4.text-text3.typography-12')?.textContent || ''
-  );
-}
+/**
+ * Extracts main text from article data
+ * Combines abstract and the main text
+ */
+function getMainText(articleData: ArticleData): string {
+  const abstract = articleData.abstract || '';
+  const text = articleData.text || '';
 
-function getMainText(document: Document): string {
-  const articleAbstractText = [
-    ...(document.getElementById('article-abstract')?.querySelectorAll('p') ??
-      []),
-  ]
-    .map((p) => p.textContent ?? '')
-    .filter((text) => text !== '')
-    .join('\n');
-
-  const firstSection = document.querySelector(
-    'div[data-header-id=h2_0]',
-  ) as HTMLDivElement;
-  const firstSectionText = [...(firstSection?.querySelectorAll('p') ?? [])]
-    .map((p) => p.textContent ?? '')
-    .filter((text) => text !== '')
-    .join('\n');
-
-  if (!articleAbstractText && !firstSectionText) {
-    return '';
+  // If we have both abstract and text, combine them
+  if (abstract && text) {
+    return `${abstract}\n\n${text}`;
   }
 
-  return articleAbstractText + '\n\n' + firstSectionText;
+  // Otherwise return whichever one we have
+  return abstract || text || '';
 }
