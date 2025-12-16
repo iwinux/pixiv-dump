@@ -6,9 +6,6 @@ import { isAxiosError } from 'axios';
 const pixivArticleURL = (tag_name: string) =>
   `${PIXIV_BASE_URL}a/${encodeURIComponent(tag_name)}`;
 
-// Maximum length of text sample to include with abstract
-const TEXT_SAMPLE_MAX_LENGTH = 500;
-
 export class ArticleNotFoundError extends Error {
   constructor(tag_name: string) {
     super(`Article not found: ${tag_name}`);
@@ -171,7 +168,7 @@ function getHeaders(
 
 /**
  * Extracts main text from article data
- * Combines abstract and the beginning of the main text
+ * Combines abstract and the main text
  */
 function getMainText(articleData: ArticleData): string {
   const abstract = articleData.abstract || '';
@@ -179,9 +176,7 @@ function getMainText(articleData: ArticleData): string {
 
   // If we have both abstract and text, combine them
   if (abstract && text) {
-    // Take a sample of the main text to combine with abstract
-    const textSample = text.substring(0, TEXT_SAMPLE_MAX_LENGTH);
-    return `${abstract}\n\n${textSample}`;
+    return `${abstract}\n\n${text}`;
   }
 
   // Otherwise return whichever one we have
