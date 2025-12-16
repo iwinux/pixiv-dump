@@ -1,7 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { fetchURL } from '../fetch/fetchURL';
 import { PIXIV_BASE_URL } from '../constants';
-import { isAxiosError } from 'axios';
 
 const pixivArticleURL = (tag_name: string) =>
   `${PIXIV_BASE_URL}a/${encodeURIComponent(tag_name)}`;
@@ -18,7 +17,10 @@ async function fetchArticlePage(url: string, tag_name: string) {
     const response = await fetchURL(url);
     return response;
   } catch (error) {
-    if (isAxiosError(error) && error.response?.status === 404) {
+    if (
+      error instanceof Error &&
+      error.message.includes('status: 404')
+    ) {
       throw new ArticleNotFoundError(tag_name);
     }
     throw error;
@@ -57,7 +59,7 @@ function getReading(document: Document) {
   return (
     document
       .getElementById('article-content-header')
-      ?.querySelector('.my-4.text-text3.typography-12')?.textContent || ''
+      ?.querySelector('p.text-12.text-text3')?.textContent?.trim() || ''
   );
 }
 
