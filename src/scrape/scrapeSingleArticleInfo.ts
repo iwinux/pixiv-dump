@@ -43,40 +43,128 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
 }
 
 function getHeaders(document: Document, tag_name: string): string[] {
-  const headers = [
-    ...document.querySelectorAll('a[gtm-class=article-breadcrumbs_link]'),
-  ].map((a) => a.textContent ?? '');
-  if (!headers.length) {
-    throw new Error(`No headers found for tag: ${tag_name}`);
+  // Try multiple selector strategies for breadcrumb links
+  const strategies = [
+    // Original selector
+    () => [
+      ...document.querySelectorAll('a[gtm-class=article-breadcrumbs_link]'),
+    ],
+    // Fallback: look for breadcrumb-related classes
+    () => [...document.querySelectorAll('[class*="breadcrumb"] a')],
+    // Fallback: look for nav elements with links
+    () => [...document.querySelectorAll('nav a')],
+    // Fallback: look for any links in a header-like container
+    () => [
+      ...document.querySelectorAll('[class*="header"] a, [id*="header"] a'),
+    ],
+  ];
+
+  for (const strategy of strategies) {
+    try {
+      const links = strategy();
+      const headers = links
+        .map((a) => a.textContent?.trim() ?? '')
+        .filter((text) => text.length > 0);
+
+      if (headers.length > 0) {
+        headers.push(tag_name);
+        return headers;
+      }
+    } catch (error) {
+      // Continue to next strategy
+      continue;
+    }
   }
-  headers.push(tag_name);
-  return headers;
+
+  throw new Error(`No headers found for tag: ${tag_name}`);
 }
 
-function getReading(document: Document) {
-  return (
-    document
-      .getElementById('article-content-header')
-      ?.querySelector('.my-4.text-text3.typography-12')?.textContent || ''
-  );
+function getReading(document: Document): string {
+  // Try multiple selector strategies as the HTML structure may change
+  const strategies = [
+    // Original selector
+    () =>
+      document
+        .getElementById('article-content-header')
+        ?.querySelector('.my-4.text-text3.typography-12')?.textContent,
+    // Fallback: any element with reading-related classes
+    () =>
+      document
+        .getElementById('article-content-header')
+        ?.querySelector('[class*="reading"]')?.textContent,
+    // Fallback: look for small text elements (typically used for pronunciation)
+    () =>
+      document
+        .getElementById('article-content-header')
+        ?.querySelector('.typography-12')?.textContent,
+    // Fallback: look for text-text3 class (tertiary text color)
+    () =>
+      document
+        .getElementById('article-content-header')
+        ?.querySelector('.text-text3')?.textContent,
+  ];
+
+  for (const strategy of strategies) {
+    try {
+      const result = strategy();
+      if (result?.trim()) {
+        return result.trim();
+      }
+    } catch (error) {
+      // Continue to next strategy
+      continue;
+    }
+  }
+
+  return '';
 }
 
 function getMainText(document: Document): string {
-  const articleAbstractText = [
-    ...(document.getElementById('article-abstract')?.querySelectorAll('p') ??
-      []),
-  ]
-    .map((p) => p.textContent ?? '')
-    .filter((text) => text !== '')
-    .join('\n');
+  // Try to get article abstract
+  let articleAbstractText = '';
+  const abstractStrategies = [
+    () => document.getElementById('article-abstract'),
+    () => document.querySelector('[id*="abstract"]'),
+    () => document.querySelector('[class*="abstract"]'),
+  ];
 
-  const firstSection = document.querySelector(
-    'div[data-header-id=h2_0]',
-  ) as HTMLDivElement;
-  const firstSectionText = [...(firstSection?.querySelectorAll('p') ?? [])]
-    .map((p) => p.textContent ?? '')
-    .filter((text) => text !== '')
-    .join('\n');
+  for (const strategy of abstractStrategies) {
+    try {
+      const abstractElement = strategy();
+      if (abstractElement) {
+        articleAbstractText = [...(abstractElement.querySelectorAll('p') ?? [])]
+          .map((p) => p.textContent ?? '')
+          .filter((text) => text !== '')
+          .join('\n');
+        if (articleAbstractText) break;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  // Try to get first section
+  let firstSectionText = '';
+  const sectionStrategies = [
+    () => document.querySelector('div[data-header-id=h2_0]') as HTMLDivElement,
+    () => document.querySelector('[data-header-id="h2_0"]') as HTMLDivElement,
+    () => document.querySelector('section:first-of-type') as HTMLElement,
+  ];
+
+  for (const strategy of sectionStrategies) {
+    try {
+      const sectionElement = strategy();
+      if (sectionElement) {
+        firstSectionText = [...(sectionElement.querySelectorAll('p') ?? [])]
+          .map((p) => p.textContent ?? '')
+          .filter((text) => text !== '')
+          .join('\n');
+        if (firstSectionText) break;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
 
   if (!articleAbstractText && !firstSectionText) {
     return '';
