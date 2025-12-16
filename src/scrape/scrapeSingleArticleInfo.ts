@@ -54,11 +54,14 @@ function getHeaders(document: Document, tag_name: string): string[] {
 }
 
 function getReading(document: Document) {
-  return (
-    document
-      .getElementById('article-content-header')
-      ?.querySelector('.my-4.text-text3.typography-12')?.textContent || ''
-  );
+  const header = document.getElementById('article-content-header');
+
+  const readingElement =
+    header?.querySelector('p.text-12.text-text3') ??
+    header?.querySelector('p.text-12') ??
+    header?.querySelector('p[class*=text-12]');
+
+  return readingElement?.textContent?.trim() ?? '';
 }
 
 function getMainText(document: Document): string {
