@@ -6,6 +6,9 @@ import { isAxiosError } from 'axios';
 const pixivArticleURL = (tag_name: string) =>
   `${PIXIV_BASE_URL}a/${encodeURIComponent(tag_name)}`;
 
+// Maximum length of text sample to include with abstract
+const TEXT_SAMPLE_MAX_LENGTH = 500;
+
 export class ArticleNotFoundError extends Error {
   constructor(tag_name: string) {
     super(`Article not found: ${tag_name}`);
@@ -80,12 +83,14 @@ function extractArticleDataFromHTML(
     throw new Error('Could not find swrFallback in __NEXT_DATA__');
   }
 
-  // Find the article data key - it contains the tag name in the path
+  // Find the article data key - it contains the literal string '{tagName}' as a placeholder
+  // in the API path, and also contains the actual tag name value
+  // Example key format: '@"openapi-","/get_article/{tagName}",#params:#query:#lang:"ja",,path:#tagName:"フリーレン",,,,'
   const articleKey = Object.keys(swrFallback).find(
     (key) => key.includes('/get_article/{tagName}') && key.includes(tag_name),
   );
 
-  // Find the breadcrumbs key
+  // Find the breadcrumbs key with the same pattern
   const breadcrumbsKey = Object.keys(swrFallback).find(
     (key) =>
       key.includes('/get_breadcrumbs/{tagName}') && key.includes(tag_name),
@@ -174,8 +179,8 @@ function getMainText(articleData: ArticleData): string {
 
   // If we have both abstract and text, combine them
   if (abstract && text) {
-    // Take first ~500 characters of text as a sample
-    const textSample = text.substring(0, 500);
+    // Take a sample of the main text to combine with abstract
+    const textSample = text.substring(0, TEXT_SAMPLE_MAX_LENGTH);
     return `${abstract}\n\n${textSample}`;
   }
 
