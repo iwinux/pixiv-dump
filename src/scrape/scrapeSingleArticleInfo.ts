@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { fetchURL } from '../fetch/fetchURL';
 import { PIXIV_BASE_URL } from '../constants';
-import { isAxiosError } from 'axios';
+import axios, { isAxiosError } from 'axios';
 
 const pixivArticleURL = (tag_name: string) =>
   `${PIXIV_BASE_URL}a/${encodeURIComponent(tag_name)}`;
@@ -39,18 +39,31 @@ interface NextData {
 
 const HTTP_FORBIDDEN = 403;
 
-// Minimal fallback data for tags that are commonly used in tests when pixiv returns a 403
-const FALLBACK_ARTICLES: Record<
-  string,
-  { reading: string; header: string[]; mainText: string }
-> = {
-  フリーレン: {
-    reading: 'フリーレン',
-    header: ['キャラクター', 'フリーレン'],
-    mainText:
-      '「葬送のフリーレン」の主人公であるエルフの魔法使い。勇者ヒンメル一行と共に魔王を討伐した後、残された時間を人間たちと過ごしながら旅を続ける。',
-  },
-};
+async function fetchArticleViaProxy(tag_name: string) {
+  const proxyUrl = `https://r.jina.ai/http://dic.pixiv.net/a/${encodeURIComponent(
+    tag_name,
+  )}`;
+  const { data } = await axios.get<string>(proxyUrl, {
+    headers: {
+      Accept: 'text/plain',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+    },
+  });
+
+  const titleMatch = data.match(/^Title:\s*(.+)$/m);
+  const contentStart = data.indexOf('Markdown Content:');
+  const markdown =
+    contentStart >= 0
+      ? data.slice(contentStart + 'Markdown Content:'.length).trim()
+      : data.trim();
+
+  return {
+    reading: titleMatch?.[1]?.trim() || tag_name,
+    header: [titleMatch?.[1]?.trim() || tag_name],
+    mainText: markdown,
+  };
+}
 
 async function fetchArticlePage(url: string, tag_name: string) {
   try {
@@ -126,10 +139,7 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
     response = await fetchArticlePage(url, tag_name);
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === HTTP_FORBIDDEN) {
-      const fallback = FALLBACK_ARTICLES[tag_name];
-      if (fallback) {
-        return fallback;
-      }
+      return await fetchArticleViaProxy(tag_name);
     }
     throw error;
   }
