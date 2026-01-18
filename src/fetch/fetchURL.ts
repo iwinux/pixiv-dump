@@ -35,9 +35,12 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       if (
         axios.isAxiosError(error) &&
         error.response?.status === 403 &&
-        (error.response.headers['set-cookie']?.length || 0) > 0
+        Array.isArray(error.response.headers['set-cookie']) &&
+        error.response.headers['set-cookie'].length > 0
       ) {
-        const cookie = error.response.headers['set-cookie'].join('; ');
+        const cookie = Array.isArray(error.response.headers['set-cookie'])
+          ? error.response.headers['set-cookie'].join('; ')
+          : error.response.headers['set-cookie'];
         try {
           return await axios.get(url, {
             headers: {
