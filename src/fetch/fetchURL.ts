@@ -1,5 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const cloudscraper = require('cloudscraper');
 import { FETCH_DELAY_MS } from '../constants';
 
 const HTTP_FORBIDDEN = 403;
@@ -43,13 +45,46 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
           error.response.headers['set-cookie'] ||
           error.response.headers['Set-Cookie'];
         if (!setCookieHeader) {
-          continue;
+          // Final attempt with cloudscraper to solve the challenge
+          try {
+            const body = await cloudscraper.get({
+              url,
+              headers: { ...baseHeaders, 'User-Agent': ua },
+            });
+            return {
+              data: body,
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: { headers: { ...baseHeaders, 'User-Agent': ua } },
+              request: {},
+            } as AxiosResponse;
+          } catch (scrapeError) {
+            lastError = scrapeError;
+            continue;
+          }
         }
         const cookie = Array.isArray(setCookieHeader)
           ? setCookieHeader.join('; ')
           : setCookieHeader;
         if (!cookie || cookie.trim() === '') {
-          continue;
+          try {
+            const body = await cloudscraper.get({
+              url,
+              headers: { ...baseHeaders, 'User-Agent': ua },
+            });
+            return {
+              data: body,
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: { headers: { ...baseHeaders, 'User-Agent': ua } },
+              request: {},
+            } as AxiosResponse;
+          } catch (scrapeError) {
+            lastError = scrapeError;
+            continue;
+          }
         }
         try {
           return await httpClient.get(url, {
@@ -66,7 +101,22 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
     }
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(`Request failed for ${url}`);
+  try {
+    const body = await cloudscraper.get({
+      url,
+      headers: { ...baseHeaders, 'User-Agent': USER_AGENTS[0] },
+    });
+    return {
+      data: body,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { headers: { ...baseHeaders, 'User-Agent': USER_AGENTS[0] } },
+      request: {},
+    } as AxiosResponse;
+  } catch (finalError) {
+    throw finalError instanceof Error
+      ? finalError
+      : new Error(`Request failed for ${url}`);
+  }
 }
