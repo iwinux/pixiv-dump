@@ -37,6 +37,8 @@ interface NextData {
   };
 }
 
+const HTTP_FORBIDDEN = 403;
+
 // Minimal fallback data for tags that are commonly used in tests when pixiv returns a 403
 const FALLBACK_ARTICLES: Record<
   string,
@@ -123,7 +125,7 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
   try {
     response = await fetchArticlePage(url, tag_name);
   } catch (error) {
-    if (isAxiosError(error) && error.response?.status === 403) {
+    if (isAxiosError(error) && error.response?.status === HTTP_FORBIDDEN) {
       const fallback = FALLBACK_ARTICLES[tag_name];
       if (fallback) {
         return fallback;

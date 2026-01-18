@@ -36,14 +36,15 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       // If Cloudflare issued a cookie, try once more with it
       if (
         axios.isAxiosError(error) &&
-        error.response?.status === 403 &&
-        error.response.headers['set-cookie']
+        error.response?.status === 403
       ) {
-        const setCookieHeader = error.response.headers['set-cookie'];
+        const setCookieHeader =
+          error.response.headers['set-cookie'] ||
+          error.response.headers['Set-Cookie'];
         const cookie = Array.isArray(setCookieHeader)
           ? setCookieHeader.join('; ')
           : setCookieHeader;
-        if (!cookie) {
+        if (!cookie || cookie.trim() === '') {
           continue;
         }
         try {
