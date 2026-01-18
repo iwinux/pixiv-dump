@@ -2,6 +2,7 @@ import axios, { AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { FETCH_DELAY_MS } from '../constants';
 
+const HTTP_FORBIDDEN = 403;
 const httpClient = axios.create();
 axiosRetry(httpClient, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
 
@@ -36,11 +37,14 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       // If Cloudflare issued a cookie, try once more with it
       if (
         axios.isAxiosError(error) &&
-        error.response?.status === 403
+        error.response?.status === HTTP_FORBIDDEN
       ) {
         const setCookieHeader =
           error.response.headers['set-cookie'] ||
           error.response.headers['Set-Cookie'];
+        if (!setCookieHeader) {
+          continue;
+        }
         const cookie = Array.isArray(setCookieHeader)
           ? setCookieHeader.join('; ')
           : setCookieHeader;
