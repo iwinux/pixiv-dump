@@ -2,6 +2,8 @@ import axios, { AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { FETCH_DELAY_MS } from '../constants';
 
+axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
+
 const USER_AGENTS = [
   'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
   'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
@@ -13,7 +15,6 @@ const USER_AGENTS = [
  */
 export async function fetchURL(url: string): Promise<AxiosResponse> {
   await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
-  axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
   const baseHeaders = {
     Accept:
       'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -38,9 +39,7 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
         Array.isArray(error.response.headers['set-cookie']) &&
         error.response.headers['set-cookie'].length > 0
       ) {
-        const cookie = Array.isArray(error.response.headers['set-cookie'])
-          ? error.response.headers['set-cookie'].join('; ')
-          : error.response.headers['set-cookie'];
+        const cookie = error.response.headers['set-cookie'].join('; ');
         try {
           return await axios.get(url, {
             headers: {
