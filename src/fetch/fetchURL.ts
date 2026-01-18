@@ -1,8 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import axiosRetry from 'axios-retry';
 import { FETCH_DELAY_MS } from '../constants';
-
-axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
 
 const USER_AGENTS = [
   'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
@@ -36,10 +33,15 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       if (
         axios.isAxiosError(error) &&
         error.response?.status === 403 &&
-        Array.isArray(error.response.headers['set-cookie']) &&
-        error.response.headers['set-cookie'].length > 0
+        error.response.headers['set-cookie']
       ) {
-        const cookie = error.response.headers['set-cookie'].join('; ');
+        const setCookieHeader = error.response.headers['set-cookie'];
+        const cookie = Array.isArray(setCookieHeader)
+          ? setCookieHeader.join('; ')
+          : setCookieHeader;
+        if (!cookie) {
+          continue;
+        }
         try {
           return await axios.get(url, {
             headers: {
