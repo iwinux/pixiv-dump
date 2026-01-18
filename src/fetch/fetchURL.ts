@@ -2,6 +2,12 @@ import axios, { AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { FETCH_DELAY_MS } from '../constants';
 
+const USER_AGENTS = [
+  'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+  'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+];
+
 /**
  * Gets the data from a URL and returns the response.
  */
@@ -15,15 +21,9 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
     Referer: 'https://www.google.com/',
   };
 
-  const userAgents = [
-    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-    'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-  ];
-
   let lastError: unknown;
 
-  for (const ua of userAgents) {
+  for (const ua of USER_AGENTS) {
     try {
       return await axios.get(url, {
         headers: { ...baseHeaders, 'User-Agent': ua },
@@ -35,7 +35,7 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       if (
         axios.isAxiosError(error) &&
         error.response?.status === 403 &&
-        error.response.headers['set-cookie']?.length
+        (error.response.headers['set-cookie']?.length || 0) > 0
       ) {
         const cookie = error.response.headers['set-cookie'].join('; ');
         try {

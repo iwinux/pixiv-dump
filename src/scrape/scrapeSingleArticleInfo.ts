@@ -37,7 +37,7 @@ interface NextData {
   };
 }
 
-// Minimal fallback data for tags that are commonly used in tests when the site is unreachable
+// Minimal fallback data for tags that are commonly used in tests when pixiv returns a 403
 const FALLBACK_ARTICLES: Record<
   string,
   { reading: string; header: string[]; mainText: string }
