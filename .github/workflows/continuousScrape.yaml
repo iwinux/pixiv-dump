@@ -93,9 +93,7 @@ jobs:
         run: echo "::set-output name=ms::$((${{ steps.get_seconds_until_nextrun.outputs.seconds }} * 1000))"
 
       - name: Scrape
-        run:
-          bun src/index.ts --timeout=${{ steps.get_ms_until_nextrun.outputs.ms
-          }}
+        run: bun src/index.ts --timeout=${{ steps.get_ms_until_nextrun.outputs.ms }}
         env:
           FLARESOLVERR_URL: http://localhost:8191/v1
 
