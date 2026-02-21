@@ -31,6 +31,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
+        options: >-
+          --health-cmd "curl -f http://localhost:8191/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,3 +55,5 @@ jobs:
 
       - name: Run Tests
         run: bun test
+        env:
+          FLARESOLVERR_URL: http://localhost:8191/v1

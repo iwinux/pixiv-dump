@@ -9,6 +9,17 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
 
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
+        options: >-
+          --health-cmd "curl -f http://localhost:8191/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -85,6 +96,8 @@ jobs:
         run:
           bun src/index.ts --timeout=${{ steps.get_ms_until_nextrun.outputs.ms
           }}
+        env:
+          FLARESOLVERR_URL: http://localhost:8191/v1
 
       - name: Upload DB
         uses: actions/upload-artifact@v4
