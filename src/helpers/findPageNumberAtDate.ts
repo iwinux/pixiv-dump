@@ -37,7 +37,19 @@ export async function findPageNumberAtDate(
     console.log(`Searching for ${dateToFind} in ${category}: ${left} ${right}`);
   }
   const pageNum = Math.max(left - 1, 1);
-  const pageData = await fetchPixivPage(category, pageNum);
+  let pageData;
+  try {
+    pageData = await fetchPixivPage(category, pageNum);
+  } catch (error: any) {
+    // If final page also doesn't exist, return the calculated pageNum
+    if (error.response?.status === 404) {
+      console.log(
+        `Page ${pageNum} returned 404, using as boundary page`,
+      );
+      return pageNum;
+    }
+    throw error;
+  }
   console.log(
     `Found ${dateToFind} in ${category} at page ${pageNum} with date ${new Date(
       pageData.articles[0].updated_at,
