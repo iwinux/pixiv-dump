@@ -43,11 +43,20 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
         }
       }
 
-      if (
-        typeof responseBody === 'string' &&
-        contentType.includes('application/json')
-      ) {
-        data = JSON.parse(responseBody);
+      // Try to parse as JSON if content-type suggests it or if it looks like JSON
+      if (typeof responseBody === 'string') {
+        if (
+          contentType.includes('application/json') ||
+          (responseBody.trim().startsWith('{') || responseBody.trim().startsWith('['))
+        ) {
+          try {
+            data = JSON.parse(responseBody);
+          } catch {
+            data = responseBody;
+          }
+        } else {
+          data = responseBody;
+        }
       } else {
         data = responseBody;
       }
