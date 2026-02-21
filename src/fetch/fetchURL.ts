@@ -30,6 +30,31 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       const contentType =
         flaresolverrResponse.data.solution?.headers?.['content-type'] || '';
       let responseBody = flaresolverrResponse.data.solution.response;
+
+      console.log(
+        `FlareSolverr response: status=${httpStatus}, contentType=${contentType}, url=${url}`,
+      );
+      console.log(
+        `Response body type: ${typeof responseBody}, length: ${typeof responseBody === 'string' ? responseBody.length : 'N/A'}`,
+      );
+      if (typeof responseBody === 'string') {
+        console.log(
+          `First 100 chars: ${responseBody.substring(0, 100)}`,
+        );
+      }
+
+      // If not successful, throw an error to match axios behavior
+      if (httpStatus < 200 || httpStatus >= 300) {
+        const error = new Error(`Request failed with status code ${httpStatus}`) as any;
+        error.response = {
+          status: httpStatus,
+          statusText: 'Error',
+          data: responseBody,
+          headers: flaresolverrResponse.data.solution?.headers || {},
+        };
+        throw error;
+      }
+
       let data: unknown;
 
       // Extract JSON from HTML wrapper if present (browser renders JSON in <pre> tags)
@@ -46,6 +71,20 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
 
       // Try to parse as JSON if content-type suggests it or if it looks like JSON
       if (typeof responseBody === 'string') {
+        // If we got HTML instead of JSON, this is likely an error page from Pixiv
+        if (responseBody.trim().startsWith('<')) {
+          const error = new Error(
+            `Request returned HTML instead of JSON (likely error page)`,
+          ) as any;
+          error.response = {
+            status: 404,
+            statusText: 'Not Found',
+            data: responseBody,
+            headers: flaresolverrResponse.data.solution?.headers || {},
+          };
+          throw error;
+        }
+
         // Check if response looks like JSON
         if (
           contentType.includes('application/json') ||
@@ -54,8 +93,15 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
           try {
             data = JSON.parse(responseBody);
           } catch {
-            // If JSON parsing fails, return raw string (might be error HTML)
-            data = responseBody;
+            // If JSON parsing fails, throw error
+            const error = new Error(`Failed to parse JSON response`) as any;
+            error.response = {
+              status: httpStatus,
+              statusText: 'Parse Error',
+              data: responseBody,
+              headers: flaresolverrResponse.data.solution?.headers || {},
+            };
+            throw error;
           }
         } else {
           data = responseBody;
@@ -68,7 +114,7 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       return {
         data,
         status: httpStatus,
-        statusText: httpStatus === 404 ? 'Not Found' : 'OK',
+        statusText: 'OK',
         headers: flaresolverrResponse.data.solution?.headers || {},
         config: {} as any,
       };
