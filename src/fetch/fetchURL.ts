@@ -18,7 +18,6 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       const flaresolverrResponse = await axios.post(flaresolverrUrl, {
         cmd: 'request.get',
         url: url,
-        maxTimeout: 60000,
       });
 
       if (flaresolverrResponse.data.status !== 'ok') {
@@ -29,12 +28,28 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
 
       const contentType =
         flaresolverrResponse.data.solution?.headers?.['content-type'] || '';
+      let responseBody = flaresolverrResponse.data.solution.response;
       let data: unknown;
 
-      if (contentType.includes('application/json')) {
-        data = JSON.parse(flaresolverrResponse.data.solution.response);
+      // Extract JSON from HTML wrapper if present (browser renders JSON in <pre> tags)
+      if (
+        typeof responseBody === 'string' &&
+        responseBody.includes('<pre>') &&
+        responseBody.includes('</pre>')
+      ) {
+        const preMatch = responseBody.match(/<pre>([\s\S]*?)<\/pre>/);
+        if (preMatch) {
+          responseBody = preMatch[1];
+        }
+      }
+
+      if (
+        typeof responseBody === 'string' &&
+        contentType.includes('application/json')
+      ) {
+        data = JSON.parse(responseBody);
       } else {
-        data = flaresolverrResponse.data.solution.response;
+        data = responseBody;
       }
 
       // Return a response object compatible with AxiosResponse
@@ -47,7 +62,8 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       };
     } catch (error) {
       console.error(
-        'FlareSolverr request failed, falling back to direct axios request',
+        'FlareSolverr request failed, falling back to direct axios request:',
+        error,
       );
     }
   }
