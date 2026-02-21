@@ -17,12 +17,22 @@ export async function findPageNumberAtDate(
   let right = totalPageCount;
   while (left < right) {
     const mid = Math.floor((left + right) / 2);
-    const midPageData = await fetchPixivPage(category, mid);
-    const midPageDate = new Date(midPageData.articles[0].updated_at);
-    if (midPageDate < new Date(dateToFind)) {
-      right = mid;
-    } else {
-      left = mid + 1;
+    try {
+      const midPageData = await fetchPixivPage(category, mid);
+      const midPageDate = new Date(midPageData.articles[0].updated_at);
+      if (midPageDate < new Date(dateToFind)) {
+        right = mid;
+      } else {
+        left = mid + 1;
+      }
+    } catch (error: any) {
+      // If we get a 404, this page doesn't exist - treat as upper bound
+      if (error.response?.status === 404) {
+        right = mid;
+      } else {
+        // Re-throw other errors
+        throw error;
+      }
     }
     console.log(`Searching for ${dateToFind} in ${category}: ${left} ${right}`);
   }
