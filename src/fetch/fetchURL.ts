@@ -65,7 +65,10 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       ) {
         const preMatch = responseBody.match(/<pre>([\s\S]*?)<\/pre>/);
         if (preMatch) {
+          console.log(`Extracted JSON from <pre> tags, new length: ${preMatch[1].length}`);
           responseBody = preMatch[1];
+        } else {
+          console.log(`Failed to extract from <pre> tags despite finding them`);
         }
       }
 
