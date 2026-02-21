@@ -26,6 +26,7 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
         );
       }
 
+      const httpStatus = flaresolverrResponse.data.solution.status;
       const contentType =
         flaresolverrResponse.data.solution?.headers?.['content-type'] || '';
       let responseBody = flaresolverrResponse.data.solution.response;
@@ -45,6 +46,7 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
 
       // Try to parse as JSON if content-type suggests it or if it looks like JSON
       if (typeof responseBody === 'string') {
+        // Check if response looks like JSON
         if (
           contentType.includes('application/json') ||
           (responseBody.trim().startsWith('{') || responseBody.trim().startsWith('['))
@@ -52,6 +54,7 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
           try {
             data = JSON.parse(responseBody);
           } catch {
+            // If JSON parsing fails, return raw string (might be error HTML)
             data = responseBody;
           }
         } else {
@@ -64,8 +67,8 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
       // Return a response object compatible with AxiosResponse
       return {
         data,
-        status: flaresolverrResponse.data.solution.status,
-        statusText: 'OK',
+        status: httpStatus,
+        statusText: httpStatus === 404 ? 'Not Found' : 'OK',
         headers: flaresolverrResponse.data.solution?.headers || {},
         config: {} as any,
       };
