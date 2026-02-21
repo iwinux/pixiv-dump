@@ -9,6 +9,15 @@ export async function scrapeArticleList(category: string, pageNumber: number) {
     console.error(`Error fetching Pixiv page: ${error}`);
     return { date: '', count: 0 };
   }
+
+  // Check if we got an HTML response instead of JSON (error page)
+  if (typeof data === 'string') {
+    console.error(
+      `Got HTML response instead of JSON for page ${pageNumber} - this might be a 404 or error page`,
+    );
+    return { date: '', count: 0 };
+  }
+
   for (const article of data.articles) {
     await prisma.pixivArticle.upsert({
       where: { tag_name: article.tag_name },

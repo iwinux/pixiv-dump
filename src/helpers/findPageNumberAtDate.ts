@@ -19,11 +19,16 @@ export async function findPageNumberAtDate(
     const mid = Math.floor((left + right) / 2);
     try {
       const midPageData = await fetchPixivPage(category, mid);
-      const midPageDate = new Date(midPageData.articles[0].updated_at);
-      if (midPageDate < new Date(dateToFind)) {
+      // If we got a string (HTML error page), treat as out of range
+      if (typeof midPageData === 'string') {
         right = mid;
       } else {
-        left = mid + 1;
+        const midPageDate = new Date(midPageData.articles[0].updated_at);
+        if (midPageDate < new Date(dateToFind)) {
+          right = mid;
+        } else {
+          left = mid + 1;
+        }
       }
     } catch (error: any) {
       // If we get a 404, this page doesn't exist - treat as upper bound
@@ -50,6 +55,15 @@ export async function findPageNumberAtDate(
     }
     throw error;
   }
+
+  // If we got HTML instead of JSON, treat as boundary
+  if (typeof pageData === 'string') {
+    console.log(
+      `Page ${pageNum} returned HTML (likely 404), using as boundary page`,
+    );
+    return pageNum;
+  }
+
   console.log(
     `Found ${dateToFind} in ${category} at page ${pageNum} with date ${new Date(
       pageData.articles[0].updated_at,

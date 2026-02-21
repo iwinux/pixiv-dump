@@ -74,20 +74,6 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
 
       // Try to parse as JSON if content-type suggests it or if it looks like JSON
       if (typeof responseBody === 'string') {
-        // If we got HTML instead of JSON, this is likely an error page from Pixiv
-        if (responseBody.trim().startsWith('<')) {
-          const error = new Error(
-            `Request returned HTML instead of JSON (likely error page)`,
-          ) as any;
-          error.response = {
-            status: 404,
-            statusText: 'Not Found',
-            data: responseBody,
-            headers: flaresolverrResponse.data.solution?.headers || {},
-          };
-          throw error;
-        }
-
         // Check if response looks like JSON
         if (
           contentType.includes('application/json') ||
@@ -96,16 +82,16 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
           try {
             data = JSON.parse(responseBody);
           } catch {
-            // If JSON parsing fails, throw error
-            const error = new Error(`Failed to parse JSON response`) as any;
-            error.response = {
-              status: httpStatus,
-              statusText: 'Parse Error',
-              data: responseBody,
-              headers: flaresolverrResponse.data.solution?.headers || {},
-            };
-            throw error;
+            // If JSON parsing fails, just return the string
+            console.warn(`Failed to parse JSON response, returning as string`);
+            data = responseBody;
           }
+        } else if (responseBody.trim().startsWith('<')) {
+          // HTML response - likely an error page, return as-is for caller to handle
+          console.warn(
+            `Received HTML response instead of JSON - this is likely a Pixiv error page`,
+          );
+          data = responseBody;
         } else {
           data = responseBody;
         }
