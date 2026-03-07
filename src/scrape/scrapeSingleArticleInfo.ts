@@ -108,6 +108,15 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
   const url = pixivArticleURL(tag_name);
   const response = await fetchArticlePage(url, tag_name);
 
+  const responseDataType = typeof response.data;
+  const responseDataPreview =
+    responseDataType === 'string'
+      ? response.data.substring(0, 200)
+      : JSON.stringify(response.data).substring(0, 200);
+  console.log(
+    `[scrapeSingle] tag=${tag_name} responseType=${responseDataType} preview=${responseDataPreview}`,
+  );
+
   // Extract data from Next.js JSON
   const { articleData, breadcrumbs } = extractArticleDataFromHTML(
     response.data,
@@ -118,6 +127,10 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
     throw new Error(`Could not find article data for tag: ${tag_name}`);
   }
 
+  console.log(
+    `[scrapeSingle] tag=${tag_name} articleData keys=${Object.keys(articleData)} abstract=${(articleData.abstract || '').substring(0, 80)} text=${(articleData.text || '').substring(0, 80)}`,
+  );
+
   // Extract reading (yomigana)
   const reading = articleData.yomigana || '';
 
@@ -126,6 +139,10 @@ export async function scrapeSingleArticleInfo(tag_name: string) {
 
   // Extract main text from abstract and text fields
   const mainText = getMainText(articleData);
+
+  console.log(
+    `[scrapeSingle] tag=${tag_name} mainText length=${mainText.length} preview=${mainText.substring(0, 100)}`,
+  );
 
   return {
     reading,

@@ -60,7 +60,17 @@ export async function fetchURL(url: string): Promise<AxiosResponse> {
 
   const solution = response.data.solution;
   const status = solution.status;
+  const rawResponse = solution.response;
+  const rawType = typeof rawResponse;
+  const rawLen = rawType === 'string' ? rawResponse.length : JSON.stringify(rawResponse).length;
+  console.log(
+    `[fetchURL] url=${url} status=${status} rawType=${rawType} rawLen=${rawLen} rawPreview=${(rawType === 'string' ? rawResponse : JSON.stringify(rawResponse)).substring(0, 150)}`,
+  );
   const data = extractResponseData(solution.response);
+  const dataType = typeof data;
+  console.log(
+    `[fetchURL] after extractResponseData: dataType=${dataType} isString=${typeof data === 'string'} len=${typeof data === 'string' ? data.length : JSON.stringify(data).length}`,
+  );
 
   const axiosResponse: AxiosResponse = {
     data,

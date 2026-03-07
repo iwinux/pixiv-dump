@@ -38,8 +38,18 @@ export async function scrapeAllIndividualArticles() {
   const articles = [...newlyNeverScraped, ...updatedArticles];
 
   console.log(
-    `Scraping ${articles.length} individual articles (${newlyNeverScraped.length} newly added, ${updatedArticles.length} updated)`,
+    `[scrapeAll] Scraping ${articles.length} individual articles (${newlyNeverScraped.length} newly added, ${updatedArticles.length} updated)`,
   );
+  if (articles.length === 0) {
+    console.log('[scrapeAll] WARNING: No articles to scrape! Checking DB state...');
+    const totalCount = await prisma.pixivArticle.count();
+    const nullCount = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*) as count FROM PixivArticle WHERE lastScrapedArticle IS NULL
+    `;
+    console.log(`[scrapeAll] Total articles: ${totalCount}, with NULL lastScrapedArticle: ${JSON.stringify(nullCount)}`);
+  } else {
+    console.log(`[scrapeAll] First 5 articles to scrape: ${articles.slice(0, 5).map(a => a.tag_name).join(', ')}`);
+  }
 
   const progressBar = new cliProgress.SingleBar(
     {
@@ -58,6 +68,9 @@ export async function scrapeAllIndividualArticles() {
     try {
       const { reading, header, mainText } =
         await scrapeSingleArticleInfo(tag_name);
+      console.log(
+        `[scrapeAll] Updating ${tag_name}: reading=${reading.substring(0, 30)} header=${JSON.stringify(header).substring(0, 50)} mainText.length=${mainText.length}`,
+      );
       await prisma.pixivArticle.update({
         where: { tag_name },
         data: {
@@ -67,6 +80,16 @@ export async function scrapeAllIndividualArticles() {
           mainText,
         },
       });
+      // Verify the update was persisted
+      if (progressBarIndex < 3) {
+        const verify = await prisma.pixivArticle.findUnique({
+          where: { tag_name },
+          select: { mainText: true, lastScrapedArticle: true },
+        });
+        console.log(
+          `[scrapeAll] Verify ${tag_name}: mainText.length=${verify?.mainText?.length ?? 'NULL'} lastScrapedArticle=${verify?.lastScrapedArticle}`,
+        );
+      }
     } catch (error) {
       if (error instanceof ArticleNotFoundError) {
         console.log(`Article not found, removing from database: ${tag_name}`);
@@ -74,7 +97,7 @@ export async function scrapeAllIndividualArticles() {
           where: { tag_name },
         });
       } else {
-        console.error(`Error scraping article ${tag_name}: ${error}`);
+        console.error(`[scrapeAll] Error scraping article ${tag_name}: ${error}`);
       }
     }
     progressBarIndex++;
