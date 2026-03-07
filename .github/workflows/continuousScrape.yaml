@@ -26,27 +26,13 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Download pixiv.db from latest release
-        run: |
-          mkdir -p db
-          LATEST_RELEASE_URL=$(curl --silent --show-error -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=1" | jq -r '.[0].assets[] | select(.name == "pixiv.db") | .browser_download_url')
-          if [ -n "$LATEST_RELEASE_URL" ]; then
-            echo "Downloading pixiv.db from $LATEST_RELEASE_URL"
-            curl --silent --show-error -L "$LATEST_RELEASE_URL" -o db/pixiv.db
-          else
-            echo "pixiv.db not found in the latest release or no releases found."
-          fi
-        continue-on-error: true
-
       - name: Install Dependencies
         run: bun install
 
-      - name: Create db/pixiv.db if it doesn't exist
+      - name: Create fresh db/pixiv.db
         run: |
-          if [ ! -f db/pixiv.db ]; then
-            bunx prisma migrate dev
-          fi
+          mkdir -p db
+          bunx prisma migrate dev
 
       - name: Set up DB
         run: bun run migrate
