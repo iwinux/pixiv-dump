@@ -2,20 +2,55 @@ import axios, { AxiosError, AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { FETCH_DELAY_MS } from '../constants';
 
-let cachedCookies: string | null = null;
-let cachedUserAgent: string | null = null;
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
 
 /**
- * Solves the Cloudflare challenge via FlareSolverr and caches
- * the resulting cookies and user-agent for direct axios requests.
+ * Extracts the actual response data from FlareSolverr's HTML-wrapped response.
+ * For JSON endpoints, the browser wraps JSON in <pre> tags with HTML-encoded entities.
+ * For HTML endpoints, returns the HTML as-is.
  */
-async function solveChallenge(
-  flaresolverrUrl: string,
-  targetUrl: string,
-): Promise<void> {
+function extractResponseData(html: string): any {
+  // Try parsing as JSON directly first
+  try {
+    return JSON.parse(html);
+  } catch {}
+
+  // Try to extract JSON from <pre> tags (browser wraps raw JSON in HTML)
+  const preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+  if (preMatch) {
+    try {
+      return JSON.parse(decodeHtmlEntities(preMatch[1]));
+    } catch {}
+  }
+
+  // Return as-is (HTML page)
+  return html;
+}
+
+/**
+ * Gets the data from a URL and returns the response.
+ * When FLARESOLVERR_URL is set, routes every request through FlareSolverr
+ * to bypass Cloudflare's managed challenge.
+ */
+export async function fetchURL(url: string): Promise<AxiosResponse> {
+  await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+
+  const flaresolverrUrl = process.env.FLARESOLVERR_URL;
+  if (!flaresolverrUrl) {
+    axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
+    return axios.get(url);
+  }
+
   const response = await axios.post(flaresolverrUrl, {
     cmd: 'request.get',
-    url: targetUrl,
+    url,
     maxTimeout: 60000,
   });
 
@@ -24,49 +59,26 @@ async function solveChallenge(
   }
 
   const solution = response.data.solution;
-  cachedUserAgent = solution.userAgent || null;
-  cachedCookies =
-    solution.cookies
-      ?.map((c: { name: string; value: string }) => `${c.name}=${c.value}`)
-      .join('; ') || null;
-}
+  const status = solution.status;
+  const data = extractResponseData(solution.response);
 
-/**
- * Gets the data from a URL and returns the response.
- * When FLARESOLVERR_URL is set, solves the Cloudflare challenge once
- * and reuses cookies/user-agent for subsequent direct requests.
- */
-export async function fetchURL(url: string): Promise<AxiosResponse> {
-  await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
-  axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
+  const axiosResponse: AxiosResponse = {
+    data,
+    status,
+    statusText: status === 200 ? 'OK' : `HTTP ${status}`,
+    headers: solution.headers || {},
+    config: {} as any,
+  };
 
-  const flaresolverrUrl = process.env.FLARESOLVERR_URL;
-  if (!flaresolverrUrl) {
-    return axios.get(url);
+  if (status >= 400) {
+    throw new AxiosError(
+      `Request failed with status code ${status}`,
+      status >= 500 ? 'ERR_BAD_RESPONSE' : 'ERR_BAD_REQUEST',
+      {} as any,
+      null,
+      axiosResponse,
+    );
   }
 
-  if (!cachedCookies) {
-    await solveChallenge(flaresolverrUrl, url);
-  }
-
-  try {
-    return await axios.get(url, {
-      headers: {
-        ...(cachedCookies && { Cookie: cachedCookies }),
-        ...(cachedUserAgent && { 'User-Agent': cachedUserAgent }),
-      },
-    });
-  } catch (error) {
-    if (error instanceof AxiosError && error.response?.status === 403) {
-      // Cookies expired or were rejected — re-solve and retry once
-      await solveChallenge(flaresolverrUrl, url);
-      return axios.get(url, {
-        headers: {
-          ...(cachedCookies && { Cookie: cachedCookies }),
-          ...(cachedUserAgent && { 'User-Agent': cachedUserAgent }),
-        },
-      });
-    }
-    throw error;
-  }
+  return axiosResponse;
 }
