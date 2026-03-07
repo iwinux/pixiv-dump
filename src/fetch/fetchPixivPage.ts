@@ -14,13 +14,6 @@ async function fetchPixivPage(
   const response = await fetchURL(url);
 
   const rawData = response.data;
-
-  // If we got a string (HTML response), it's likely a 404 or error page
-  // Return it as-is and let the caller handle it
-  if (typeof rawData === 'string') {
-    return rawData as any;
-  }
-
   if (!rawData.meta) {
     throw new Error(`Missing meta in response: ${JSON.stringify(rawData)}`);
   }
