@@ -12,9 +12,9 @@ import {
 } from '../helpers/lastScrapedHandler';
 import { getTotalPageCount } from '../helpers/getTotalPageCount';
 
-export async function scrapeAllCategories() {
+export async function scrapeAllCategories(maxPages?: number) {
   for (const category of PIXIV_CATEGORIES) {
-    await scrapePixivCategory(category);
+    await scrapePixivCategory(category, maxPages);
   }
 }
 
@@ -25,7 +25,7 @@ export async function scrapeAllCategories() {
  * Search onwards from oldestScrape until the end
  * @param category
  */
-async function scrapePixivCategory(category: string) {
+async function scrapePixivCategory(category: string, maxPages?: number) {
   const totalPageCount = await getTotalPageCount(category);
   // Scrape to newestScrape
   const newestScrapeDate = await getCategoryScraped({
@@ -33,7 +33,7 @@ async function scrapePixivCategory(category: string) {
     sort: 'newest',
   });
   console.log(
-    `${category}: Newest scrape: ${newestScrapeDate}, Total pages: ${totalPageCount}`,
+    `${category}: Newest scrape: ${newestScrapeDate}, Total pages: ${totalPageCount}${maxPages ? `, maxPages: ${maxPages}` : ''}`,
   );
 
   let lastLoopScrapeDate = DATE_MAX_FUTURE;
@@ -43,7 +43,8 @@ async function scrapePixivCategory(category: string) {
   // While we are scraping pages that are newer than newestScrapeDate, continue scraping
   while (
     newestScrapeDate !== DATE_MIN_PAST &&
-    new Date(lastLoopScrapeDate) > new Date(newestScrapeDate)
+    new Date(lastLoopScrapeDate) > new Date(newestScrapeDate) &&
+    (!maxPages || pageNumber <= maxPages)
   ) {
     const { date: responseDate } = await scrapeArticleList(
       category,
@@ -101,7 +102,8 @@ async function scrapePixivCategory(category: string) {
   // Scrape from oldestScrapePage to the end
   let count = 1;
   pageNumber = oldestScrapePage;
-  while (count !== 0) {
+  let backwardPages = 0;
+  while (count !== 0 && (!maxPages || backwardPages < maxPages)) {
     const { count: resultCount, date: resultDate } = await scrapeArticleList(
       category,
       pageNumber,
@@ -111,17 +113,21 @@ async function scrapePixivCategory(category: string) {
       `${category}: Scraping back: ${resultDate} Page: ${pageNumber}/${totalPageCount}`,
     );
     pageNumber++;
+    backwardPages++;
     updateCategoryScraped({
       category,
       date: resultDate,
       sort: 'oldest',
     });
   }
-  updateCategoryScraped({
-    category,
-    date: OLDEST_SCRAPED_REACHED,
-    sort: 'oldest',
-  });
-
-  console.log(`${category}: Scrape complete`);
+  if (count === 0) {
+    updateCategoryScraped({
+      category,
+      date: OLDEST_SCRAPED_REACHED,
+      sort: 'oldest',
+    });
+    console.log(`${category}: Scrape complete`);
+  } else {
+    console.log(`${category}: Reached max-pages limit, stopping`);
+  }
 }

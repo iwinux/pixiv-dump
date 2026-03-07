@@ -17,11 +17,16 @@ export const prisma = new PrismaClient();
     .option('max-articles', {
       describe: 'Maximum number of individual articles to scrape in phase 2',
       type: 'number',
+    })
+    .option('max-pages', {
+      describe: 'Maximum number of pages to scrape per category in phase 1',
+      type: 'number',
     }).argv;
 
-  const { timeout, maxArticles } = argv as {
+  const { timeout, maxArticles, maxPages } = argv as {
     timeout: number;
     maxArticles: number;
+    maxPages: number;
   };
 
   if (timeout) {
@@ -33,7 +38,7 @@ export const prisma = new PrismaClient();
     }, timeout);
   }
 
-  scrapeAll(maxArticles)
+  scrapeAll(maxArticles, maxPages)
     .then(async (totalArticles) => {
       exitHandler({
         completedScraping: true,
@@ -50,13 +55,13 @@ export const prisma = new PrismaClient();
  * Scrape all categories and readings
  * @returns Total number of articles scraped
  */
-async function scrapeAll(maxArticles?: number) {
+async function scrapeAll(maxArticles?: number, maxPages?: number) {
   const totalArticlesInDB = await prisma.pixivArticle.count();
   console.log(`Loaded existing database with ${totalArticlesInDB} articles.`);
   const initialReadingsCount = await getArticlesScrapedCount();
   console.log(`${initialReadingsCount} articles with readings.`);
 
-  await scrapeAllCategories();
+  await scrapeAllCategories(maxPages);
   console.log('Scraping of article summaries complete');
   const totalArticles = await prisma.pixivArticle.count();
   console.log(`Total articles: ${totalArticles}`);
