@@ -8,7 +8,7 @@ import {
 /**
  * Scrape all readings for articles that have not been scraped yet or have been updated since the last scrape.
  */
-export async function scrapeAllIndividualArticles() {
+export async function scrapeAllIndividualArticles(maxArticles?: number) {
   // Find articles that need individual scraping:
   // 1. Articles never scraped individually (lastScrapedArticle IS NULL) - prioritized first
   // 2. Articles updated since last individual scrape (lastScraped > lastScrapedArticle)
@@ -35,7 +35,14 @@ export async function scrapeAllIndividualArticles() {
              tag_name
   `;
 
-  const articles = [...newlyNeverScraped, ...updatedArticles];
+  let articles = [...newlyNeverScraped, ...updatedArticles];
+
+  if (maxArticles !== undefined && articles.length > maxArticles) {
+    console.log(
+      `[scrapeAll] Limiting from ${articles.length} to ${maxArticles} articles (--max-articles)`,
+    );
+    articles = articles.slice(0, maxArticles);
+  }
 
   console.log(
     `[scrapeAll] Scraping ${articles.length} individual articles (${newlyNeverScraped.length} newly added, ${updatedArticles.length} updated)`,

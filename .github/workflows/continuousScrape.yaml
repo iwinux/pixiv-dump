@@ -38,7 +38,7 @@ jobs:
         run: bun run migrate
 
       - name: Scrape
-        run: bun src/index.ts --timeout=120000
+        run: bun src/index.ts --timeout=300000 --max-articles=5
         env:
           FLARESOLVERR_URL: http://localhost:8191/v1
 

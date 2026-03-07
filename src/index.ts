@@ -9,12 +9,20 @@ import { getArticlesScrapedCount } from './helpers/getArticlesWithReadingsCount'
 export const prisma = new PrismaClient();
 
 (async () => {
-  const argv = yargs(hideBin(process.argv)).option('timeout', {
-    describe: 'Exit program after a specified amount of time (in milliseconds)',
-    type: 'number',
-  }).argv;
+  const argv = yargs(hideBin(process.argv))
+    .option('timeout', {
+      describe: 'Exit program after a specified amount of time (in milliseconds)',
+      type: 'number',
+    })
+    .option('max-articles', {
+      describe: 'Maximum number of individual articles to scrape in phase 2',
+      type: 'number',
+    }).argv;
 
-  const { timeout } = argv as { timeout: number };
+  const { timeout, maxArticles } = argv as {
+    timeout: number;
+    maxArticles: number;
+  };
 
   if (timeout) {
     console.log(`Timeout set to ${timeout} milliseconds`);
@@ -25,7 +33,7 @@ export const prisma = new PrismaClient();
     }, timeout);
   }
 
-  scrapeAll()
+  scrapeAll(maxArticles)
     .then(async (totalArticles) => {
       exitHandler({
         completedScraping: true,
@@ -42,7 +50,7 @@ export const prisma = new PrismaClient();
  * Scrape all categories and readings
  * @returns Total number of articles scraped
  */
-async function scrapeAll() {
+async function scrapeAll(maxArticles?: number) {
   const totalArticlesInDB = await prisma.pixivArticle.count();
   console.log(`Loaded existing database with ${totalArticlesInDB} articles.`);
   const initialReadingsCount = await getArticlesScrapedCount();
@@ -54,7 +62,7 @@ async function scrapeAll() {
   console.log(`Total articles: ${totalArticles}`);
 
   console.log('Scraping single articles');
-  await scrapeAllIndividualArticles();
+  await scrapeAllIndividualArticles(maxArticles);
   console.log('Scraping of articles complete!');
   const individualArticlesScraped = await getArticlesScrapedCount();
   console.log(`Total articles scraped: ${individualArticlesScraped}`);
