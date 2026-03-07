@@ -26,35 +26,6 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Get time of 5.9 hours from now
-        id: get_time_details
-        run: |
-          echo "::set-output name=time_nextrun::$(($(date +%s) + 21240))"
-
-      - name: Get previous run ID
-        id: get_run_id
-        run: |
-          RUN_ID=$(curl --silent --show-error -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/continuousScrape.yaml/runs" \
-            | jq '.workflow_runs[1].id')
-          echo "Previous run ID: $RUN_ID"
-          echo "::set-output name=run_id::$RUN_ID"
-
-      - name: Wait for previous run to complete
-        id: wait_previous_run
-        run: |
-          while : ; do
-            STATUS=$(curl --silent --show-error -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ steps.get_run_id.outputs.run_id }}" \
-              | jq -r '.status')
-            echo "Previous run status: $STATUS"
-            if [[ "$STATUS" == "completed" ]]; then
-              break
-            fi
-            echo "Waiting for the previous run to complete..."
-            sleep 60
-          done
-
       - name: Download pixiv.db from latest release
         run: |
           mkdir -p db
@@ -80,18 +51,8 @@ jobs:
       - name: Set up DB
         run: bun run migrate
 
-      - name: Get seconds until next run
-        id: get_seconds_until_nextrun
-        # prettier-ignore
-        run: echo "::set-output name=seconds::$((${{ steps.get_time_details.outputs.time_nextrun }} - $(date +%s)))"
-
-      - name: Get ms until next run
-        id: get_ms_until_nextrun
-        # prettier-ignore
-        run: echo "::set-output name=ms::$((${{ steps.get_seconds_until_nextrun.outputs.seconds }} * 1000))"
-
       - name: Scrape
-        run: bun src/index.ts --timeout=${{ steps.get_ms_until_nextrun.outputs.ms }}
+        run: bun src/index.ts --timeout=120000
         env:
           FLARESOLVERR_URL: http://localhost:8191/v1
 
